@@ -1,0 +1,46 @@
+{
+  "maktab_nomi": "Kelajak Ziyo Xususiy Maktabi",
+  "manzil": "Toshkent shahri, Chilonzor tumani, Bunyodkor ko'chasi 15-uy",
+  "moljal": "Mirzo Ulug'bek metrosi yaqinida",
+  "telefon": "+998 71 200 00 00 / +998 90 123 45 67",
+  "telegram_admin": "@maktab_admin",
+  "ish_vaqti": "Dushanba - Shanba: 08:30 dan 17:30 gacha (Yakshanba - dam olish kuni)",
+  "dars_vaqti": "09:00 dan 16:30 gacha (1-smena, kun bo'yi ta'lim)",
+  
+  "oqitish_yonalishlari": [
+    "Aniq fanlar (Matematika, Fizika chuqurlashtirilgan)",
+    "Xorijiy tillar (Ingliz tili - IELTS/CEFR, Nemis tili)",
+    "IT va Dasturlash (Robototexnika, Python, Web dasturlash)",
+    "Boshlang'ich sinflar (1-4 sinf: mental arifmetika va shaxmat bilan birga)"
+  ],
+
+  "ovqatlanish": "Kuniga 3 mahal issiq va parhez taomlar (nonushta, tushlik, meva va yengil tamaddi). O'z oshxonamizda pishiriladi.",
+  "transport": "Shahar bo'ylab o'quvchilarni olib kelish va olib ketish avtobus xizmati (marshrut) mavjud.",
+
+  "narxlar_va_tolov": {
+    "boshlangich_sinf_1_4": "Oyiga 3 500 000 so'm (ovqatlanish va to'garaklar ichida)",
+    "yuqori_sinf_5_11": "Oyiga 4 000 000 so'm (ovqatlanish, to'garaklar va laboratoriya ichida)",
+    "transport_xizmati": "Oyiga 500 000 so'mdan 800 000 so'mgacha (masofaga qarab)",
+    "chegirmalar": "Bir oiladan 2 yoki undan ortiq farzand o'qisa, ikkinchi farzandga 10% chegirma beriladi. Bir yillik to'lov oldindan qilinsa, 15% chegirma bor."
+  },
+
+  "qabul_jarayoni": {
+    "qabul_boshlanishi": "Har yili may oyidan avgust oyigacha qabul o'tkaziladi. O'rinlar soni cheklangan.",
+    "kerakli_hujjatlar": [
+      "Tug'ilganlik haqida guvohnoma nusxasi",
+      "Ota-ona pasport nusxalari",
+      "086-shakldagi tibbiy ma'lumotnoma",
+      "3x4 rasm (4 dona)",
+      "Oldingi maktabdan baholar tabeli (1-sinfdan boshqalar uchun)"
+    ],
+    "imtihon": "Boshlang'ich sinflar uchun psixologik suhbat, 5-11 sinflar uchun Matematika va Ingliz tili fanidan test sinovi olinadi."
+  },
+
+  "togaraklar": [
+    "Shaxmat",
+    "Robototexnika va Scratch",
+    "Futbol va Taekwondo",
+    "Tasviriy san'at va Kulolchilik",
+    "Notiqlik va Teatr san'ati"
+  ]
+}
