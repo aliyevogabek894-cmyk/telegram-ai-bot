@@ -6,6 +6,7 @@ import threading
 import time
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
+from telethon.tl.types import DocumentAttributeAudio
 from ai_service import generate_ai_response
 from voice_service import text_to_voice_file
 
@@ -41,14 +42,13 @@ asyncio.set_event_loop(loop)
 
 client = TelegramClient("my_userbot_session", API_ID, API_HASH, loop=loop)
 
-# 75 ta belgidan oshsa OVOZLI XABAR
+# 75 ta belgidan oshsa — 100% OVOZLI XABAR
 VOICE_THRESHOLD_CHARS = 75
 
 @client.on(events.NewMessage(incoming=True))
 async def handle_incoming(event):
     """Shaxsiy chatlardan kelgan har qanday xabarga ZUDLIK BILAN javob qaytarish"""
     try:
-        # Faqat shaxsiy yozishmalar va boshqalar yozgan xabarlar
         if not event.is_private or event.out:
             return
 
@@ -56,10 +56,8 @@ async def handle_incoming(event):
         if not sender or getattr(sender, 'bot', False):
             return
 
-        chat_id = event.chat_id
         sender_id = event.sender_id
         sender_name = getattr(sender, 'first_name', '') or 'Foydalanuvchi'
-
         user_text = event.raw_text or ""
 
         # Ovozli xabar kelsa
@@ -81,43 +79,48 @@ async def handle_incoming(event):
         if not user_text.strip():
             return
 
-        print(f"\n⚡ [YANGI XABAR KELDI] {sender_name}: {user_text}")
+        print(f"\n⚡ [XABAR KELDI] {sender_name}: {user_text}")
 
         # AI dan javob olish
         ai_reply = await generate_ai_response(sender_id, user_text)
+        print(f"🤖 [AI MATNI] ({len(ai_reply)} ta belgi): {ai_reply}")
 
-        # Agar 75 belgidan oshsa -> OVOZLI XABAR jo'natish
+        # 75 belgidan oshsa -> OVOZLI XABAR jo'natish
         if len(ai_reply) >= VOICE_THRESHOLD_CHARS:
-            print(f"🎙️ [OVOZ YARATILMOQDA...] ({len(ai_reply)} ta belgi)")
-            voice_file = f"voice_{int(time.time()*1000)}.ogg"
-            try:
-                # Ovoz faylini yaratish
-                voice_path = await text_to_voice_file(ai_reply, voice_file)
-                if voice_path and os.path.exists(voice_path) and os.path.getsize(voice_path) > 0:
-                    # Telegram voice shaklida yuborish
-                    await client.send_file(
-                        event.chat_id,
-                        voice_path,
-                        voice_note=True,
-                        reply_to=event.id
-                    )
-                    print(f"🚀 [OVOZLI JAVOB YUBORILDI!] -> {sender_name}\n")
-                    try:
-                        os.remove(voice_path)
-                    except Exception:
-                        pass
-                    return
-                else:
-                    print("⚠️ Ovoz fayl hosil bo'lmadi, matn yuboriladi.")
-            except Exception as ve:
-                print(f"❌ Ovoz yuborishda xatolik: {ve}")
+            print(f"🎙️ [OVOZ TAYYORLANMOQDA...] ({len(ai_reply)} belgi >= {VOICE_THRESHOLD_CHARS})")
+            
+            # Chatda "recording voice..." statusini yoqamiz
+            async with client.action(event.chat_id, 'record-voice'):
+                voice_filename = f"v_{sender_id}_{int(time.time())}.ogg"
+                voice_file = await text_to_voice_file(ai_reply, voice_filename)
 
-        # 75 belgidan kam bo'lsa -> MATN qilib yuborish
+                if voice_file and os.path.exists(voice_file) and os.path.getsize(voice_file) > 0:
+                    try:
+                        # Telegram Voice Note sifatiga kafolatli yuborish
+                        await client.send_file(
+                            event.chat_id,
+                            voice_file,
+                            voice_note=True,
+                            reply_to=event.id,
+                            attributes=[DocumentAttributeAudio(voice=True, title="Voice message", performer="")]
+                        )
+                        print(f"🚀 [OVOZLI XABAR 100% YUBORILDI!] -> {sender_name}\n")
+                        try:
+                            os.remove(voice_file)
+                        except Exception:
+                            pass
+                        return
+                    except Exception as send_err:
+                        print(f"❌ Telegram send_file xatosi: {send_err}")
+                else:
+                    print("⚠️ Ovoz fayli yaratilmadi.")
+
+        # 75 belgidan kam bo'lsa -> Oddiy matn
         await event.reply(ai_reply)
-        print(f"🚀 [MATNLI JAVOB YUBORILDI] -> {sender_name}: {ai_reply}\n")
+        print(f"🚀 [MATN YUBORILDI] -> {sender_name}: {ai_reply}\n")
 
     except Exception as e:
-        print(f"❌ Xatolik: {e}")
+        print(f"❌ Xatolik yuz berdi: {e}")
 
 async def main():
     print("==================================================")
