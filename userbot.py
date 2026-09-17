@@ -7,6 +7,7 @@ import time
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 from ai_service import generate_ai_response
+from voice_service import text_to_voice_file
 
 if sys.platform == "win32":
     try:
@@ -40,20 +41,18 @@ asyncio.set_event_loop(loop)
 
 client = TelegramClient("my_userbot_session", API_ID, API_HASH, loop=loop)
 
-# Siz oxirgi marta har bir chatda qachon xabar yozganingizni eslab qolish
 last_owner_activity = {}
 
 @client.on(events.NewMessage(outgoing=True))
 async def handle_outgoing(event):
-    """Agar siz o'zingiz Telegramda birovga yozsangiz, bot bu chatda faollikni qayd qiladi va aralashmaydi"""
+    """Siz o'zingiz yozsangiz, bot 3 daqiqa bu chatga aralashmaydi"""
     if event.is_private:
         last_owner_activity[event.chat_id] = time.time()
 
 @client.on(events.NewMessage(incoming=True))
 async def handle_incoming(event):
-    """Shaxsiy chatlardan kelgan yangi xabarlarga aqlli munosabat"""
+    """Shaxsiy xabarlarga aqlli matn va ovozli javob berish"""
     try:
-        # Faqat shaxsiy yozishmalar
         if not event.is_private or event.out:
             return
 
@@ -65,36 +64,30 @@ async def handle_incoming(event):
         sender_id = event.sender_id
         sender_name = getattr(sender, 'first_name', '') or 'Foydalanuvchi'
 
-        # 1-QOIDA: Agar siz o'zingiz oxirgi 3 daqiqa ichida bu odamga yozgan bo'lsangiz (siz online yozishyapsiz),
-        # bot sizning suhbatingizga xalaqit bermaydi va jim turadi!
+        # 1. Siz o'zingiz yozishayotgan bo'lsangiz, jim turadi
         now = time.time()
         if chat_id in last_owner_activity and (now - last_owner_activity[chat_id] < 180):
             print(f"🤫 Siz {sender_name} bilan o'zingiz yozishyapsiz, AI aralashmadi.")
             return
 
-        # 2-QOIDA: Xabar turini aniqlash (Matn, Rasm, Video, Ovozli xabar)
         user_text = event.raw_text or ""
 
-        # Agar ovozli xabar (Voice) bo'lsa
+        # Ovozli xabar kelsa
         if event.voice or event.audio:
             print(f"🎙️ [VOICE KELDI] {sender_name}")
-            ai_reply = "Hozir ovozli xabarni eshita olmayotgan edim, nima gapligini yozib yuborolmaysizmi?"
-            await event.reply(ai_reply)
+            await event.reply("Hozir ovozli xabarni eshita olmayotgan edim, nima gapligini yozib yuborolmaysizmi?")
             return
 
-        # Agar rasm yoki video bo'lsa
+        # Rasm yoki video kelsa
         if event.photo or event.video:
             print(f"🖼️ [MEDIA KELDI] {sender_name}")
             if user_text:
-                # Rasmni tagiga yozuv yozilgan bo'lsa, o'sha yozuvga AI javob beradi
                 ai_reply = await generate_ai_response(sender_id, f"[Rasm/Video yubordi]: {user_text}")
             else:
-                # Faqat rasm/videoning o'zi bo'lsa
                 ai_reply = "Ko'rdim, qabul qildim. Hozir sal bo'shashim bilan qarab chiqaman."
             await event.reply(ai_reply)
             return
 
-        # Agar oddiy matn bo'lmasa
         if not user_text.strip():
             return
 
@@ -103,23 +96,39 @@ async def handle_incoming(event):
         # AI dan javob olish
         ai_reply = await generate_ai_response(sender_id, user_text)
 
-        # Xabarga javob yuborish
+        # 2. QOIDALAR BO'YICHA YUBORISH (Qisqa bo'lsa Matn, Uzun bo'lsa Ovozli xabar):
+        # 85 belgidan uzun bo'lsa ovozli xabar qilamiz
+        if len(ai_reply) > 85:
+            print(f"🎙️ [OVOZ YARATILMOQDA...] ({len(ai_reply)} ta belgi)")
+            async with client.action(event.chat_id, 'record-voice'):
+                voice_file = await text_to_voice_file(ai_reply, f"voice_{sender_id}.ogg")
+                if voice_file and os.path.exists(voice_file):
+                    # Telegram voice shaklida yuborish
+                    await client.send_file(event.chat_id, voice_file, voice_note=True, reply_to=event.id)
+                    print(f"🚀 [OVOZLI JAVOB YUBORILDI] -> {sender_name}\n")
+                    try:
+                        os.remove(voice_file)
+                    except Exception:
+                        pass
+                    return
+
+        # Qisqa bo'lsa oddiy matn sifatida yuborish
         await event.reply(ai_reply)
-        print(f"🚀 [JAVOB BERILDI] -> {sender_name}: {ai_reply}\n")
+        print(f"🚀 [MATNLI JAVOB YUBORILDI] -> {sender_name}: {ai_reply}\n")
 
     except Exception as e:
         print(f"❌ Xatolik: {e}")
 
 async def main():
     print("==================================================")
-    print("🌐 24/7 BULUT SERVERIDA AQLI BOT ISHGA TUSHMOQDA...")
+    print("🌐 24/7 BULUT SERVERIDA SMART AI BOT (MATN + OVOZ)...")
     print("==================================================")
 
     threading.Thread(target=run_http_server, daemon=True).start()
 
     await client.connect()
     me = await client.get_me()
-    print(f"✅ BOT SMART REJIMDA ISHLAMOQDA!")
+    print(f"✅ BOT MATN VA OVOZLI REJIMDA ISHLAMOQDA!")
     print(f"👤 Egasi: {me.first_name} (@{me.username or 'usernamesiz'})")
     print("==================================================")
 
