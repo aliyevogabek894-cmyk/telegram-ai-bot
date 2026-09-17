@@ -1,39 +1,37 @@
 import os
 import re
 import asyncio
-from gtts import gTTS
+import edge_tts
 
-def get_lang(text: str) -> str:
-    # Agar ruscha harflar bo'lsa rus tilida, aks holda o'zbek/turkcha ohangda
+# O'zbek tili uchun O'G'IL BOLA ovozi (Sardor)
+VOICE_UZBEK_MALE = "uz-UZ-SardorNeural"
+# Rus tili uchun erkak ovozi (Dmitry)
+VOICE_RUSSIAN_MALE = "ru-RU-DmitryNeural"
+
+def get_male_voice(text: str) -> str:
+    """Faqat o'g'il bola (erkak) ovozini tanlaydi"""
     if re.search(r'[а-яА-ЯёЁ]', text):
-        return "ru"
-    # O'zbek tili uchun eng ravon va tez til kodi
-    return "tr"  # gTTS da tr/ru juda tez va tabiiy gapiradi
+        return VOICE_RUSSIAN_MALE
+    # O'zbekcha erkak kishi ovozi
+    return VOICE_UZBEK_MALE
 
-def generate_voice_sync(text: str, output_path: str) -> bool:
-    """Google TTS orqali 0.5 soniyada audio hosil qilish"""
+async def text_to_voice_file(text: str, output_path: str = "voice.ogg") -> str:
+    """Toza o'zbek tilida o'g'il bola ovozi bilan audio yaratish"""
     try:
+        # Smayliklarni tozalash (talaffuz buzilmasligi uchun)
         clean_text = re.sub(r'[^\w\s\.,!\?\'"\-—:;]+', '', text).strip()
         if not clean_text:
             clean_text = text
 
-        lang = get_lang(clean_text)
-        tts = gTTS(text=clean_text, lang=lang, slow=False)
-        tts.save(output_path)
-        return os.path.exists(output_path) and os.path.getsize(output_path) > 0
-    except Exception as e:
-        print(f"❌ gTTS Xatolik: {e}")
-        return False
+        voice = get_male_voice(clean_text)
+        
+        # rate="+10%" — tabiiy va jonli tezlikda gapirish
+        communicate = edge_tts.Communicate(clean_text, voice, rate="+10%")
+        await communicate.save(output_path)
 
-async def text_to_voice_file(text: str, output_path: str = "voice.ogg") -> str:
-    """Asinxron holda zudlik bilan ovoz yaratish"""
-    try:
-        loop = asyncio.get_running_loop()
-        # Bloklamasdan alohida oqimda tezkor yaratish
-        ok = await loop.run_in_executor(None, generate_voice_sync, text, output_path)
-        if ok:
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
             return output_path
         return ""
     except Exception as e:
-        print(f"❌ Voice xatosi: {e}")
+        print(f"❌ Ovoz xatosi: {e}")
         return ""

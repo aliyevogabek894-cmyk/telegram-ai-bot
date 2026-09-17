@@ -1,6 +1,5 @@
 import time
 import os
-import sys
 from typing import Dict
 from google import genai
 from dotenv import load_dotenv
@@ -37,9 +36,10 @@ async def generate_ai_response(user_id: int, user_message: str) -> str:
             speaker = "Suhbatdosh" if msg["role"] == "user" else OWNER_NAME
             dialogue += f"{speaker}: {msg['text']}\n"
 
-        prompt = f"""Vazifa: Siz — {OWNER_NAME}siz (haqiqiy inson). Telegramda suhbatdoshingiz bergan savoliga qarab, xuddi o'zingizdek samimiy, tabiiy, tushunarli va mazmunli o'zbek tilida javob bering.
-O'zingizni bot yoki sun'iy intellekt deb aslo aytmang! Faqat {OWNER_NAME} sifatida gapiring.
-Doimo bitta gapni takrorlamang, savol nima haqida bo'lsa aynan o'sha mavzuda javob bering.
+        prompt = f"""Vazifa: Siz — {OWNER_NAME} ismli yigitsiz (erkak kishi). 
+Telegramda suhbatdoshingiz bergan savoliga qarab, toza, ravon, samimiy va chiroyli o'zbek adabiy tilida (lotin yozuvida) javob bering.
+O'zingizni bot yoki AI deb aslo aytmang! Yigit kishi sifatida gapiring.
+Javobingiz juda cho'zilib ketmasin, 2-3 ta tushunarli va ma'noli jumlada fikringizni ifodalang.
 
 {dialogue}Suhbatdosh: {clean_message}
 {OWNER_NAME}:"""
@@ -51,13 +51,12 @@ Doimo bitta gapni takrorlamang, savol nima haqida bo'lsa aynan o'sha mavzuda jav
 
         reply = response.text.strip() if (response and response.text) else "Eshitaman, nima gap?"
 
-        # Prefikslarni tozalash
         for p in [f"{OWNER_NAME}:", f"{OWNER_NAME} :", "Assistent:", "AI:"]:
             if reply.lower().startswith(p.lower()):
                 reply = reply[len(p):].strip()
 
         if "sun'iy intellekt" in reply.lower() or "botman" in reply.lower():
-            reply = "Hozir ozgina band edim, nima gaplar?"
+            reply = "Hozir ozgina ishlarim bor edi, nima gaplar?"
 
         user_data["history"].append({"role": "user", "text": clean_message})
         user_data["history"].append({"role": "model", "text": reply})
