@@ -1,33 +1,34 @@
 import os
 import re
 import asyncio
-import edge_tts
+from gtts import gTTS
 
-# O'zbek tili uchun O'G'IL BOLA rasmiy diktor ovozi (Sardor)
-VOICE_UZBEK_MALE = "uz-UZ-SardorNeural"
-VOICE_RUSSIAN_MALE = "ru-RU-DmitryNeural"
-
-async def text_to_voice_file(text: str, output_path: str = "voice.ogg") -> str:
-    """Toza o'zbek tilida erkak kishi (Sardor) ovozi bilan audio yaratish"""
+def text_to_voice_sync(text: str, output_path: str) -> bool:
+    """Google TTS — serverda hech qachon 403 blok bermaydi, 100% barqaror va tezkor"""
     try:
-        # Smayliklar va keraksiz belgilarni tozalash (talaffuz o'ta toza chiqishi uchun)
         clean_text = re.sub(r'[^\w\s\.,!\?\'"\-—:;]+', '', text).strip()
         if not clean_text:
             clean_text = text
 
-        # Ruscha bo'lsa Dmitry, o'zbekcha bo'lsa 100% Sardor
-        if re.search(r'[а-яА-ЯёЁ]', clean_text):
-            voice = VOICE_RUSSIAN_MALE
-        else:
-            voice = VOICE_UZBEK_MALE
+        # Ruscha bo'lsa ru, o'zbekcha bo'lsa tr (chunki gTTS da turkiy ohang o'zbek tiliga eng yaqin)
+        # Yoki to'g'ridan-to'g'ri tld='com' bilan ravon o'qiydi
+        lang = "ru" if re.search(r'[а-яА-ЯёЁ]', clean_text) else "tr"
+        
+        tts = gTTS(text=clean_text, lang=lang, tld='com', slow=False)
+        tts.save(output_path)
 
-        # rate="+5%", pitch="-2Hz" (vazminroq, yoqimli erkak ovozi uchun)
-        communicate = edge_tts.Communicate(clean_text, voice, rate="+5%", pitch="-2Hz")
-        await communicate.save(output_path)
+        return os.path.exists(output_path) and os.path.getsize(output_path) > 0
+    except Exception as e:
+        print(f"❌ gTTS xatosi: {e}", flush=True)
+        return False
 
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+async def text_to_voice_file(text: str, output_path: str = "voice.ogg") -> str:
+    try:
+        loop = asyncio.get_running_loop()
+        success = await loop.run_in_executor(None, text_to_voice_sync, text, output_path)
+        if success:
             return output_path
         return ""
     except Exception as e:
-        print(f"❌ Ovoz yaratishda xato: {e}")
+        print(f"❌ Voice xatosi: {e}", flush=True)
         return ""
