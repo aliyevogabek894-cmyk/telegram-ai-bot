@@ -23,7 +23,8 @@ async def health_check(request):
 
 client = TelegramClient("bot_cloud_session", API_ID, API_HASH)
 
-VOICE_THRESHOLD_CHARS = 75
+# 20 ta belgidan oshsa — DARHOL OVOZLI XABAR
+VOICE_THRESHOLD_CHARS = 20
 
 @client.on(events.NewMessage(incoming=True))
 async def handle_incoming(event):
