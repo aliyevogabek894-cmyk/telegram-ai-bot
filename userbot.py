@@ -39,7 +39,7 @@ def run_http_server():
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
 
-client = TelegramClient("my_userbot_session", API_ID, API_HASH, loop=loop)
+client = TelegramClient("bot_cloud_session", API_ID, API_HASH, loop=loop)
 
 # 75 ta belgidan oshsa OVOZLI XABAR
 VOICE_THRESHOLD_CHARS = 75
