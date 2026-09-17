@@ -3,35 +3,31 @@ import re
 import asyncio
 import edge_tts
 
-# O'zbek tili uchun O'G'IL BOLA ovozi (Sardor)
+# O'zbek tili uchun O'G'IL BOLA rasmiy diktor ovozi (Sardor)
 VOICE_UZBEK_MALE = "uz-UZ-SardorNeural"
-# Rus tili uchun erkak ovozi (Dmitry)
 VOICE_RUSSIAN_MALE = "ru-RU-DmitryNeural"
 
-def get_male_voice(text: str) -> str:
-    """Faqat o'g'il bola (erkak) ovozini tanlaydi"""
-    if re.search(r'[а-яА-ЯёЁ]', text):
-        return VOICE_RUSSIAN_MALE
-    # O'zbekcha erkak kishi ovozi
-    return VOICE_UZBEK_MALE
-
 async def text_to_voice_file(text: str, output_path: str = "voice.ogg") -> str:
-    """Toza o'zbek tilida o'g'il bola ovozi bilan audio yaratish"""
+    """Toza o'zbek tilida erkak kishi (Sardor) ovozi bilan audio yaratish"""
     try:
-        # Smayliklarni tozalash (talaffuz buzilmasligi uchun)
+        # Smayliklar va keraksiz belgilarni tozalash (talaffuz o'ta toza chiqishi uchun)
         clean_text = re.sub(r'[^\w\s\.,!\?\'"\-—:;]+', '', text).strip()
         if not clean_text:
             clean_text = text
 
-        voice = get_male_voice(clean_text)
-        
-        # rate="+10%" — tabiiy va jonli tezlikda gapirish
-        communicate = edge_tts.Communicate(clean_text, voice, rate="+10%")
+        # Ruscha bo'lsa Dmitry, o'zbekcha bo'lsa 100% Sardor
+        if re.search(r'[а-яА-ЯёЁ]', clean_text):
+            voice = VOICE_RUSSIAN_MALE
+        else:
+            voice = VOICE_UZBEK_MALE
+
+        # rate="+5%", pitch="-2Hz" (vazminroq, yoqimli erkak ovozi uchun)
+        communicate = edge_tts.Communicate(clean_text, voice, rate="+5%", pitch="-2Hz")
         await communicate.save(output_path)
 
         if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
             return output_path
         return ""
     except Exception as e:
-        print(f"❌ Ovoz xatosi: {e}")
+        print(f"❌ Ovoz yaratishda xato: {e}")
         return ""

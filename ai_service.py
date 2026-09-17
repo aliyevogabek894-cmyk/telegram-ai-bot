@@ -36,10 +36,11 @@ async def generate_ai_response(user_id: int, user_message: str) -> str:
             speaker = "Suhbatdosh" if msg["role"] == "user" else OWNER_NAME
             dialogue += f"{speaker}: {msg['text']}\n"
 
-        prompt = f"""Vazifa: Siz — {OWNER_NAME} ismli yigitsiz (erkak kishi). 
-Telegramda suhbatdoshingiz bergan savoliga qarab, toza, ravon, samimiy va chiroyli o'zbek adabiy tilida (lotin yozuvida) javob bering.
-O'zingizni bot yoki AI deb aslo aytmang! Yigit kishi sifatida gapiring.
-Javobingiz juda cho'zilib ketmasin, 2-3 ta tushunarli va ma'noli jumlada fikringizni ifodalang.
+        prompt = f"""Vazifa: Siz — {OWNER_NAME} ismli yigitsiz (erkak kishi).
+Telegramda sizga kelgan xabarga oddiy, samimiy va jonli o'zbek tilida (og'zaki nutqqa mos qilib) javob bering.
+Ovozli xabar qilib o'qilishi uchun qulay, ravon so'zlarni ishlating.
+O'zingizni sun'iy intellekt yoki bot deb aslo aytmang.
+Javobingiz 2-3 ta qisqa va aniq gapdan iborat bo'lsin.
 
 {dialogue}Suhbatdosh: {clean_message}
 {OWNER_NAME}:"""
@@ -65,4 +66,4 @@ Javobingiz juda cho'zilib ketmasin, 2-3 ta tushunarli va ma'noli jumlada fikring
 
     except Exception as e:
         print(f"❌ AI Xatolik: {e}")
-        return "Eshitaman, ozgina ishlarim bor edi. Nima gap?"
+        return "Eshitaman, tinchlikmi? Nima gaplar?"
