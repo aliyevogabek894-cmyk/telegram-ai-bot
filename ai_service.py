@@ -1,5 +1,6 @@
 import time
 import os
+import sys
 from typing import Dict
 from google import genai
 from dotenv import load_dotenv
@@ -13,13 +14,12 @@ OWNER_NAME = "Og'abek"
 user_conversations: Dict[int, Dict] = {}
 SESSION_TIMEOUT_SECONDS = 3600
 
-client_instance = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+def get_ai_client():
+    key = os.getenv("GEMINI_API_KEY", GEMINI_API_KEY).strip()
+    return genai.Client(api_key=key)
 
 async def generate_ai_response(user_id: int, user_message: str) -> str:
     try:
-        if not client_instance:
-            return "Salom, yaxshimisiz?"
-
         clean_message = user_message.strip()
 
         if user_id not in user_conversations:
@@ -45,18 +45,19 @@ Javobingiz 2-3 ta qisqa va aniq gapdan iborat bo'lsin.
 {dialogue}Suhbatdosh: {clean_message}
 {OWNER_NAME}:"""
 
-        response = client_instance.models.generate_content(
+        client = get_ai_client()
+        response = client.models.generate_content(
             model=AI_MODEL_NAME,
             contents=prompt
         )
 
-        reply = response.text.strip() if (response and response.text) else "Eshitaman, nima gap?"
+        reply = response.text.strip() if (response and response.text) else ""
 
         for p in [f"{OWNER_NAME}:", f"{OWNER_NAME} :", "Assistent:", "AI:"]:
             if reply.lower().startswith(p.lower()):
                 reply = reply[len(p):].strip()
 
-        if "sun'iy intellekt" in reply.lower() or "botman" in reply.lower():
+        if not reply or "sun'iy intellekt" in reply.lower() or "botman" in reply.lower():
             reply = "Hozir ozgina ishlarim bor edi, nima gaplar?"
 
         user_data["history"].append({"role": "user", "text": clean_message})
@@ -65,5 +66,7 @@ Javobingiz 2-3 ta qisqa va aniq gapdan iborat bo'lsin.
         return reply
 
     except Exception as e:
-        print(f"❌ AI Xatolik: {e}")
-        return "Eshitaman, tinchlikmi? Nima gaplar?"
+        import traceback
+        print(f"❌ AI XATOLIK: {e}", flush=True)
+        traceback.print_exc()
+        return "Eshitaman, ozgina ishlarim bor edi. Nima gap?"
