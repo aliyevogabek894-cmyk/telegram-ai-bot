@@ -1,16 +1,30 @@
 import time
 import os
-import sys
 import re
+import sys
 from typing import Dict
 from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()
 
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-AI_MODEL_NAME = "gemini-3.6-flash"
 OWNER_NAME = "Og'abek"
+
+# Limitga tushsa keyingi modelga o'tuvchi zanjir
+AI_MODELS = [
+    "gemini-flash-lite-latest",   # 1-chi: eng ko'p limit
+    "gemini-3.5-flash-lite",      # 2-chi: zaxira lite
+    "gemini-3.1-flash-lite",      # 3-chi: yana lite
+    "gemini-3.5-flash",           # 4-chi: to'liq flash
+    "gemini-3.8-flash",           # 5-chi: so'nggi avlod
+]
 
 user_conversations: Dict[int, Dict] = {}
 SESSION_TIMEOUT_SECONDS = 3600
@@ -27,10 +41,10 @@ async def generate_ai_response(user_id: int, user_message: str) -> str:
             "last_active": time.time(),
             "history": []
         }
-    
+
     user_data = user_conversations[user_id]
     user_data["last_active"] = time.time()
-    
+
     dialogue = ""
     for msg in user_data["history"][-4:]:
         speaker = "Suhbatdosh" if msg["role"] == "user" else OWNER_NAME
@@ -47,16 +61,29 @@ Javobingiz 2 ta yoki 3 ta qisqa va aniq gapdan oshmasin.
 {OWNER_NAME}:"""
 
     reply = ""
-    try:
-        client = get_ai_client()
-        response = client.models.generate_content(
-            model=AI_MODEL_NAME,
-            contents=prompt
-        )
-        if response and response.text:
-            reply = response.text.strip()
-    except Exception as e:
-        print(f"❌ AI Xatolik: {e}", flush=True)
+    client = get_ai_client()
+
+    for model_name in AI_MODELS:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
+            if response and response.text:
+                reply = response.text.strip()
+                print(f"[AI OK] Model: {model_name}", flush=True)
+                break
+        except Exception as e:
+            err_str = str(e)
+            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                print(f"[AI QUOTA] {model_name} limiti tugadi, keyingiga o'tilmoqda...", flush=True)
+                continue
+            elif "503" in err_str or "UNAVAILABLE" in err_str:
+                print(f"[AI UNAVAIL] {model_name} mavjud emas, keyingiga o'tilmoqda...", flush=True)
+                continue
+            else:
+                print(f"[AI ERROR] {model_name}: {err_str[:100]}", flush=True)
+                continue
 
     if reply:
         for p in [f"{OWNER_NAME}:", f"{OWNER_NAME} :", "Assistent:", "AI:"]:
@@ -66,10 +93,10 @@ Javobingiz 2 ta yoki 3 ta qisqa va aniq gapdan oshmasin.
         # Emojilarni olib tashlash (TTS toza o'qishi uchun)
         reply = re.sub(r'[\U00010000-\U0010ffff]', '', reply).strip()
 
-        if "sun'iy intellekt" in reply.lower() or "botman" in reply.lower():
+        if "sun'iy intellekt" in reply.lower() or "botman" in reply.lower() or "ai" == reply.lower().strip():
             reply = "Hozir ozgina ishlarim bor edi, nima gaplar?"
     else:
-        reply = "Xabaringni ko'rdim, hozir sal bandroq edim, birozdan keyin o'zim yozaman."
+        reply = "Xabaringni oldim, hozir bandroq edim. Birozdan keyin o'zim yozaman."
 
     user_data["history"].append({"role": "user", "text": clean_message})
     user_data["history"].append({"role": "model", "text": reply})
