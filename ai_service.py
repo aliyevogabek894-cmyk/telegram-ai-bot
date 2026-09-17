@@ -1,6 +1,7 @@
 import time
 import os
 import sys
+import re
 from typing import Dict
 from google import genai
 from dotenv import load_dotenv
@@ -36,10 +37,11 @@ async def generate_ai_response(user_id: int, user_message: str) -> str:
         dialogue += f"{speaker}: {msg['text']}\n"
 
     prompt = f"""Vazifa: Siz — {OWNER_NAME} ismli yigitsiz (erkak kishi).
-Telegramda sizga kelgan xabarga oddiy, samimiy va jonli o'zbek tilida (og'zaki nutqqa mos qilib) javob bering.
-Ovozli xabar qilib o'qilishi uchun qulay, ravon so'zlarni ishlating.
-O'zingizni sun'iy intellekt yoki bot deb aslo aytmang.
-Javobingiz 2-3 ta qisqa va aniq gapdan iborat bo'lsin. Har doim bir xil gapni takrorlamang, savol mazmuniga aniq javob bering.
+Telegramda sizga kelgan xabarga toza, dona-dona, ravon va tushunarli o'zbek tilida javob bering.
+Ovozli xabar qilib o'qilishi uchun so'zlarni sodda, imloviy xatosiz va o'zbek adabiy tilida yozing.
+Smayliklar (emojilar), g'alati qisqartmalar va ortiqcha belgilarni umuman ishlatmang.
+O'zingizni bot yoki AI deb aslo aytmang. Yigit kishi sifatida samimiy va erkin gapiring.
+Javobingiz 2 ta yoki 3 ta qisqa va aniq gapdan oshmasin.
 
 {dialogue}Suhbatdosh: {clean_message}
 {OWNER_NAME}:"""
@@ -61,10 +63,13 @@ Javobingiz 2-3 ta qisqa va aniq gapdan iborat bo'lsin. Har doim bir xil gapni ta
             if reply.lower().startswith(p.lower()):
                 reply = reply[len(p):].strip()
 
+        # Emojilarni olib tashlash (TTS toza o'qishi uchun)
+        reply = re.sub(r'[\U00010000-\U0010ffff]', '', reply).strip()
+
         if "sun'iy intellekt" in reply.lower() or "botman" in reply.lower():
             reply = "Hozir ozgina ishlarim bor edi, nima gaplar?"
     else:
-        reply = "Xabaringni ko'rdim, hozir sal bandroq edim, birozdan keyin o'zim batafsil yozaman."
+        reply = "Xabaringni ko'rdim, hozir sal bandroq edim, birozdan keyin o'zim yozaman."
 
     user_data["history"].append({"role": "user", "text": clean_message})
     user_data["history"].append({"role": "model", "text": reply})

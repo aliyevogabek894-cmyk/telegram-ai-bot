@@ -9,7 +9,11 @@ from telethon.tl.types import DocumentAttributeAudio
 from ai_service import generate_ai_response
 from voice_service import text_to_voice_file
 
-sys.stdout.reconfigure(line_buffering=True)
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(line_buffering=True, encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
 load_dotenv()
 
