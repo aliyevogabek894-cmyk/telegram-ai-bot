@@ -1,8 +1,8 @@
 import time
 import os
+import sys
 from typing import Dict
 from google import genai
-from google.genai import types
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,12 +15,6 @@ user_conversations: Dict[int, Dict] = {}
 SESSION_TIMEOUT_SECONDS = 3600
 
 client_instance = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
-
-# Telegram audio va matni uchun optimal hajm (juda uzun ma'ruza bo'lib ketmasligi uchun)
-OPTIMAL_CONFIG = types.GenerateContentConfig(
-    max_output_tokens=150,     # Qisqa, jonli va 2-3 jumlali javob uchun
-    temperature=0.7,
-)
 
 async def generate_ai_response(user_id: int, user_message: str) -> str:
     try:
@@ -43,26 +37,26 @@ async def generate_ai_response(user_id: int, user_message: str) -> str:
             speaker = "Suhbatdosh" if msg["role"] == "user" else OWNER_NAME
             dialogue += f"{speaker}: {msg['text']}\n"
 
-        prompt = f"""Siz — {OWNER_NAME}siz (haqiqiy inson). Telegramda suhbatdoshingizning savoliga qarab, xuddi o'zingizdek samimiy, oddiy va tabiiy o'zbek tilida javob bering.
-O'zingizni bot yoki AI deb aytmang.
-MUHIM: Javobingiz Telegram chatiga mos ravishda 2-3 ta qisqa, tushunarli jumlalardan oshmasin (uzun ma'ruza yoki kitob yozmang).
+        prompt = f"""Vazifa: Siz — {OWNER_NAME}siz (haqiqiy inson). Telegramda suhbatdoshingiz bergan savoliga qarab, xuddi o'zingizdek samimiy, tabiiy, tushunarli va mazmunli o'zbek tilida javob bering.
+O'zingizni bot yoki sun'iy intellekt deb aslo aytmang! Faqat {OWNER_NAME} sifatida gapiring.
+Doimo bitta gapni takrorlamang, savol nima haqida bo'lsa aynan o'sha mavzuda javob bering.
 
 {dialogue}Suhbatdosh: {clean_message}
 {OWNER_NAME}:"""
 
         response = client_instance.models.generate_content(
             model=AI_MODEL_NAME,
-            contents=prompt,
-            config=OPTIMAL_CONFIG
+            contents=prompt
         )
 
         reply = response.text.strip() if (response and response.text) else "Eshitaman, nima gap?"
 
+        # Prefikslarni tozalash
         for p in [f"{OWNER_NAME}:", f"{OWNER_NAME} :", "Assistent:", "AI:"]:
             if reply.lower().startswith(p.lower()):
                 reply = reply[len(p):].strip()
 
-        if "sun'iy intellekt" in reply.lower() or "botman" in reply.lower() or "ai model" in reply.lower():
+        if "sun'iy intellekt" in reply.lower() or "botman" in reply.lower():
             reply = "Hozir ozgina band edim, nima gaplar?"
 
         user_data["history"].append({"role": "user", "text": clean_message})
@@ -71,5 +65,5 @@ MUHIM: Javobingiz Telegram chatiga mos ravishda 2-3 ta qisqa, tushunarli jumlala
         return reply
 
     except Exception as e:
-        print(f"Xatolik: {e}")
-        return "Eshitaman, tinchlikmi? Nima gaplar?"
+        print(f"❌ AI Xatolik: {e}")
+        return "Eshitaman, ozgina ishlarim bor edi. Nima gap?"
