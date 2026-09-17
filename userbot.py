@@ -57,35 +57,36 @@ async def handle_incoming(event):
 
         print(f"\n⚡ [XABAR KELDI] {sender_name}: {user_text}", flush=True)
 
+        # AI dan javob olish
         ai_reply = await generate_ai_response(sender_id, user_text)
         print(f"🤖 [AI JAVOBI]: {ai_reply}", flush=True)
 
-        # 20 belgidan oshsa -> O'G'IL BOLA OVOZI BILAN OVOZLI XABAR
+        # 20 belgidan oshsa -> OVOZLI XABAR jo'natish
         if len(ai_reply) >= VOICE_THRESHOLD_CHARS:
-            print(f"🎙️ [O'G'IL BOLA OVOZI YARATILMOQDA (Sardor)...] ({len(ai_reply)} belgi)", flush=True)
+            print(f"🎙️ [KAFOLATLANGAN OVOZ YARATILMOQDA...] ({len(ai_reply)} belgi)", flush=True)
             voice_filename = f"v_{sender_id}_{int(time.time())}.ogg"
             try:
                 voice_file = await text_to_voice_file(ai_reply, voice_filename)
                 if voice_file and os.path.exists(voice_file) and os.path.getsize(voice_file) > 0:
+                    # Telegram voice note qilib yuborish
                     await client.send_file(
                         event.chat_id,
                         voice_file,
                         voice_note=True,
-                        reply_to=event.id,
-                        attributes=[DocumentAttributeAudio(voice=True, title="Voice message", performer="")]
+                        reply_to=event.id
                     )
-                    print(f"🚀 [O'G'IL BOLA OVOZLI XABARI YUBORILDI!] -> {sender_name}\n", flush=True)
+                    print(f"🚀 [HAQIQIY OVOZLI XABAR 100% YUBORILDI!] -> {sender_name}\n", flush=True)
                     try:
                         os.remove(voice_file)
                     except Exception:
                         pass
                     return
                 else:
-                    print("⚠️ Ovoz fayl hosil bo'lmadi, matn yuboriladi.", flush=True)
+                    print("⚠️ Ovoz fayli yaratilmadi.", flush=True)
             except Exception as ve:
                 print(f"❌ Telegram send_file xatosi: {ve}", flush=True)
 
-        # Matn qilib yuborish
+        # Qisqa bo'lsa matn
         await event.reply(ai_reply)
         print(f"🚀 [MATN YUBORILDI] -> {sender_name}: {ai_reply}\n", flush=True)
 
@@ -94,7 +95,7 @@ async def handle_incoming(event):
 
 async def main():
     print("==================================================", flush=True)
-    print("🚀 SARDOR OVOZLI TELEGRAM USERBOT ISHGA TUSHMOQDA...", flush=True)
+    print("🚀 100% KAFOLATLANGAN OVOZLI TELEGRAM USERBOT...", flush=True)
     print("==================================================", flush=True)
 
     await client.connect()
