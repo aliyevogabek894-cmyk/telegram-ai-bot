@@ -6,7 +6,6 @@ import threading
 import time
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
-from telethon.tl.types import DocumentAttributeAudio
 from ai_service import generate_ai_response
 from voice_service import text_to_voice_file
 
@@ -42,7 +41,7 @@ asyncio.set_event_loop(loop)
 
 client = TelegramClient("my_userbot_session", API_ID, API_HASH, loop=loop)
 
-# 75 ta belgidan oshsa — 100% OVOZLI XABAR
+# 75 ta belgidan oshsa OVOZLI XABAR
 VOICE_THRESHOLD_CHARS = 75
 
 @client.on(events.NewMessage(incoming=True))
@@ -88,32 +87,27 @@ async def handle_incoming(event):
         # 75 belgidan oshsa -> OVOZLI XABAR jo'natish
         if len(ai_reply) >= VOICE_THRESHOLD_CHARS:
             print(f"🎙️ [OVOZ TAYYORLANMOQDA...] ({len(ai_reply)} belgi >= {VOICE_THRESHOLD_CHARS})")
-            
-            # Chatda "recording voice..." statusini yoqamiz
-            async with client.action(event.chat_id, 'record-voice'):
-                voice_filename = f"v_{sender_id}_{int(time.time())}.ogg"
+            voice_filename = f"voice_{sender_id}_{int(time.time())}.ogg"
+            try:
                 voice_file = await text_to_voice_file(ai_reply, voice_filename)
-
                 if voice_file and os.path.exists(voice_file) and os.path.getsize(voice_file) > 0:
+                    # Telegram voice shaklida yuborish
+                    await client.send_file(
+                        event.chat_id,
+                        voice_file,
+                        voice_note=True,
+                        reply_to=event.id
+                    )
+                    print(f"🚀 [OVOZLI XABAR 100% YUBORILDI!] -> {sender_name}\n")
                     try:
-                        # Telegram Voice Note sifatiga kafolatli yuborish
-                        await client.send_file(
-                            event.chat_id,
-                            voice_file,
-                            voice_note=True,
-                            reply_to=event.id,
-                            attributes=[DocumentAttributeAudio(voice=True, title="Voice message", performer="")]
-                        )
-                        print(f"🚀 [OVOZLI XABAR 100% YUBORILDI!] -> {sender_name}\n")
-                        try:
-                            os.remove(voice_file)
-                        except Exception:
-                            pass
-                        return
-                    except Exception as send_err:
-                        print(f"❌ Telegram send_file xatosi: {send_err}")
+                        os.remove(voice_file)
+                    except Exception:
+                        pass
+                    return
                 else:
                     print("⚠️ Ovoz fayli yaratilmadi.")
+            except Exception as ve:
+                print(f"❌ Telegram send_file xatosi: {ve}")
 
         # 75 belgidan kam bo'lsa -> Oddiy matn
         await event.reply(ai_reply)

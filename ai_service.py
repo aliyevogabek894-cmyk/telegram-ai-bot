@@ -2,6 +2,7 @@ import time
 import os
 from typing import Dict
 from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,6 +15,12 @@ user_conversations: Dict[int, Dict] = {}
 SESSION_TIMEOUT_SECONDS = 3600
 
 client_instance = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+
+# Telegram audio va matni uchun optimal hajm (juda uzun ma'ruza bo'lib ketmasligi uchun)
+OPTIMAL_CONFIG = types.GenerateContentConfig(
+    max_output_tokens=150,     # Qisqa, jonli va 2-3 jumlali javob uchun
+    temperature=0.7,
+)
 
 async def generate_ai_response(user_id: int, user_message: str) -> str:
     try:
@@ -36,33 +43,27 @@ async def generate_ai_response(user_id: int, user_message: str) -> str:
             speaker = "Suhbatdosh" if msg["role"] == "user" else OWNER_NAME
             dialogue += f"{speaker}: {msg['text']}\n"
 
-        prompt = f"""Siz — {OWNER_NAME}siz (haqiqiy inson). Telegramda suhbatdoshingizning savoliga qarab, mazmunan to'liq, aqlli, samimiy va insoniy javob bering. O'zingizni bot yoki AI deb aytmang.
+        prompt = f"""Siz — {OWNER_NAME}siz (haqiqiy inson). Telegramda suhbatdoshingizning savoliga qarab, xuddi o'zingizdek samimiy, oddiy va tabiiy o'zbek tilida javob bering.
+O'zingizni bot yoki AI deb aytmang.
+MUHIM: Javobingiz Telegram chatiga mos ravishda 2-3 ta qisqa, tushunarli jumlalardan oshmasin (uzun ma'ruza yoki kitob yozmang).
 
 {dialogue}Suhbatdosh: {clean_message}
 {OWNER_NAME}:"""
 
-        # Retry mexanizmi bilan so'rov yuborish
-        response = None
-        for _ in range(2):
-            try:
-                response = client_instance.models.generate_content(
-                    model=AI_MODEL_NAME,
-                    contents=prompt
-                )
-                if response and response.text:
-                    break
-            except Exception:
-                time.sleep(0.5)
+        response = client_instance.models.generate_content(
+            model=AI_MODEL_NAME,
+            contents=prompt,
+            config=OPTIMAL_CONFIG
+        )
 
         reply = response.text.strip() if (response and response.text) else "Eshitaman, nima gap?"
 
-        # Prefikslarni tozalash
         for p in [f"{OWNER_NAME}:", f"{OWNER_NAME} :", "Assistent:", "AI:"]:
             if reply.lower().startswith(p.lower()):
                 reply = reply[len(p):].strip()
 
         if "sun'iy intellekt" in reply.lower() or "botman" in reply.lower() or "ai model" in reply.lower():
-            reply = "Hozir ozgina band edim, nima savol bor edi? Eshitaman."
+            reply = "Hozir ozgina band edim, nima gaplar?"
 
         user_data["history"].append({"role": "user", "text": clean_message})
         user_data["history"].append({"role": "model", "text": reply})
@@ -70,4 +71,5 @@ async def generate_ai_response(user_id: int, user_message: str) -> str:
         return reply
 
     except Exception as e:
-        return "Eshitaman, ozgina band edim. Nima gaplar?"
+        print(f"Xatolik: {e}")
+        return "Eshitaman, tinchlikmi? Nima gaplar?"
