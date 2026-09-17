@@ -31,7 +31,6 @@ async def generate_ai_response(user_id: int, user_message: str) -> str:
         user_data = user_conversations[user_id]
         user_data["last_active"] = time.time()
         
-        # Dialogni shakllantirish
         dialogue = ""
         for msg in user_data["history"][-4:]:
             speaker = "Suhbatdosh" if msg["role"] == "user" else OWNER_NAME
@@ -42,11 +41,18 @@ async def generate_ai_response(user_id: int, user_message: str) -> str:
 {dialogue}Suhbatdosh: {clean_message}
 {OWNER_NAME}:"""
 
-        # To'g'ridan-to'g'ri ishonchli so'rov
-        response = client_instance.models.generate_content(
-            model=AI_MODEL_NAME,
-            contents=prompt
-        )
+        # Retry mexanizmi bilan so'rov yuborish
+        response = None
+        for _ in range(2):
+            try:
+                response = client_instance.models.generate_content(
+                    model=AI_MODEL_NAME,
+                    contents=prompt
+                )
+                if response and response.text:
+                    break
+            except Exception:
+                time.sleep(0.5)
 
         reply = response.text.strip() if (response and response.text) else "Eshitaman, nima gap?"
 
@@ -64,5 +70,4 @@ async def generate_ai_response(user_id: int, user_message: str) -> str:
         return reply
 
     except Exception as e:
-        print(f"Xatolik: {e}")
         return "Eshitaman, ozgina band edim. Nima gaplar?"
