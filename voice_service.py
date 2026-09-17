@@ -1,34 +1,34 @@
 import os
 import re
 import asyncio
-from gtts import gTTS
+import edge_tts
 
-def text_to_voice_sync(text: str, output_path: str) -> bool:
-    """Faqat Google TTS — hech qanday Microsoft Edge yo'q, 403 xatosi bo'lmaydi"""
+# Haqiqiy o'zbek yigitining rasmiy ovozi
+VOICE_MALE_UZ = "uz-UZ-SardorNeural"
+VOICE_MALE_RU = "ru-RU-DmitryNeural"
+
+def get_voice(text: str) -> str:
+    if re.search(r'[а-яА-ЯёЁ]', text):
+        return VOICE_MALE_RU
+    return VOICE_MALE_UZ
+
+async def text_to_voice_file(text: str, output_path: str = "voice.ogg") -> str:
+    """Haqiqiy o'zbek o'g'il bola (Sardor) ovozi bilan toza va ravon audio yaratish"""
     try:
+        # Smaylik va maxsus belgilarni tozalash
         clean_text = re.sub(r'[^\w\s\.,!\?\'"\-—:;]+', '', text).strip()
         if not clean_text:
             clean_text = text
 
-        # Ruscha bo'lsa ru, o'zbekcha bo'lsa tr (chunki gTTS da turkiy ohang o'zbek tiliga eng yaqin)
-        lang = "ru" if re.search(r'[а-яА-ЯёЁ]', clean_text) else "tr"
+        voice = get_voice(clean_text)
+        
+        # pitch="-1Hz", rate="+5%" — tabiiy erkak kishi ohangi
+        communicate = edge_tts.Communicate(clean_text, voice, rate="+5%", pitch="-1Hz")
+        await communicate.save(output_path)
 
-        tts = gTTS(text=clean_text, lang=lang, tld='com', slow=False)
-        tts.save(output_path)
-
-        return os.path.exists(output_path) and os.path.getsize(output_path) > 0
-    except Exception as e:
-        print(f"❌ gTTS Xatolik: {e}", flush=True)
-        return False
-
-async def text_to_voice_file(text: str, output_path: str = "voice.ogg") -> str:
-    """Asinxron oqimda to'g'ridan-to'g'ri audio yaratish"""
-    try:
-        loop = asyncio.get_running_loop()
-        success = await loop.run_in_executor(None, text_to_voice_sync, text, output_path)
-        if success:
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
             return output_path
         return ""
     except Exception as e:
-        print(f"❌ Voice xatosi: {e}", flush=True)
+        print(f"❌ Ovoz xatosi: {e}", flush=True)
         return ""

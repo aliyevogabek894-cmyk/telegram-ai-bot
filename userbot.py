@@ -21,6 +21,7 @@ async def health_check(request):
 
 client = TelegramClient("bot_cloud_session", API_ID, API_HASH)
 
+# 20 ta belgidan oshsa — OVOZLI XABAR
 VOICE_THRESHOLD_CHARS = 20
 
 @client.on(events.NewMessage(incoming=True))
@@ -56,32 +57,31 @@ async def handle_incoming(event):
 
         print(f"\n⚡ [XABAR KELDI] {sender_name}: {user_text}", flush=True)
 
-        # AI dan javob olish
         ai_reply = await generate_ai_response(sender_id, user_text)
         print(f"🤖 [AI JAVOBI]: {ai_reply}", flush=True)
 
-        # 20 belgidan oshsa -> OVOZLI XABAR jo'natish
+        # 20 belgidan oshsa -> O'G'IL BOLA OVOZI BILAN OVOZLI XABAR
         if len(ai_reply) >= VOICE_THRESHOLD_CHARS:
-            print(f"🎙️ [GOOGLE TTS OVOZ YARATILMOQDA...] ({len(ai_reply)} belgi)", flush=True)
-            voice_filename = f"v_{sender_id}_{int(time.time())}.mp3"
+            print(f"🎙️ [O'G'IL BOLA OVOZI YARATILMOQDA (Sardor)...] ({len(ai_reply)} belgi)", flush=True)
+            voice_filename = f"v_{sender_id}_{int(time.time())}.ogg"
             try:
                 voice_file = await text_to_voice_file(ai_reply, voice_filename)
                 if voice_file and os.path.exists(voice_file) and os.path.getsize(voice_file) > 0:
-                    # Telegram voice shaklida yuborish
                     await client.send_file(
                         event.chat_id,
                         voice_file,
                         voice_note=True,
-                        reply_to=event.id
+                        reply_to=event.id,
+                        attributes=[DocumentAttributeAudio(voice=True, title="Voice message", performer="")]
                     )
-                    print(f"🚀 [OVOZLI XABAR 100% YUBORILDI!] -> {sender_name}\n", flush=True)
+                    print(f"🚀 [O'G'IL BOLA OVOZLI XABARI YUBORILDI!] -> {sender_name}\n", flush=True)
                     try:
                         os.remove(voice_file)
                     except Exception:
                         pass
                     return
                 else:
-                    print("⚠️ Audio fayl topilmadi, matn yuboriladi.", flush=True)
+                    print("⚠️ Ovoz fayl hosil bo'lmadi, matn yuboriladi.", flush=True)
             except Exception as ve:
                 print(f"❌ Telegram send_file xatosi: {ve}", flush=True)
 
@@ -94,7 +94,7 @@ async def handle_incoming(event):
 
 async def main():
     print("==================================================", flush=True)
-    print("🚀 PURE GTTS TELEGRAM USERBOT ISHGA TUSHMOQDA...", flush=True)
+    print("🚀 SARDOR OVOZLI TELEGRAM USERBOT ISHGA TUSHMOQDA...", flush=True)
     print("==================================================", flush=True)
 
     await client.connect()
