@@ -3,8 +3,10 @@ import sys
 import asyncio
 from aiohttp import web
 import time
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
+from telethon.tl import types
 from telethon.tl.types import DocumentAttributeAudio
 from ai_service import generate_ai_response
 from voice_service import text_to_voice_file
@@ -28,26 +30,91 @@ client = TelegramClient("bot_cloud_session", API_ID, API_HASH)
 # 20 ta belgidan oshsa — OVOZLI XABAR
 VOICE_THRESHOLD_CHARS = 20
 
-# Siz o'zingiz javob bermasangiz, necha soniyadan keyin bot javob bersin (1 daqiqa)
+# Chiqib ketganingizdan keyin yoki javob bermasangiz kutish vaqti (60 soniya = 1 daqiqa)
 AUTO_REPLY_DELAY = 60
 
-async def send_ai_reply(chat_id: int, sender_id: int, sender_name: str, user_text: str, incoming_msg_id: int):
-    """1 daqiqa kutib, agar siz javob bermagan bo'lsangiz — bot yuboradi"""
-    try:
-        # 1 daqiqa kutish
-        await asyncio.sleep(AUTO_REPLY_DELAY)
+# Egasi (Og'abek) oxirgi marta qachon xabar yozgan vaqti
+last_owner_activity_time = 0.0
 
-        # 1 daqiqa ichida siz (akkaunt egasi) javob yozganmisiz?
-        messages = await client.get_messages(chat_id, limit=15)
-        for msg in messages:
-            # event.id dan keyin chiqqan chiquvchi (out=True) xabar bo'lsa — siz yozdingiz
-            if msg.out and msg.id > incoming_msg_id:
-                print(f"[SKIP] {sender_name}: Siz o'zingiz javob berdingiz, bot jim.", flush=True)
+@client.on(events.NewMessage(outgoing=True))
+async def handle_outgoing(event):
+    """Egasi Telegramda xabar yozsa, faollik vaqtini yangilaymiz"""
+    global last_owner_activity_time
+    last_owner_activity_time = time.time()
+
+async def is_owner_online_or_recently_active() -> bool:
+    """
+    Egasi hozir onlinemi yoki chiqib ketganiga hali 1 minut to'lmadimi:
+    - Agar online bo'lsa -> True
+    - Chiqib ketganiga 60 soniyadan kam bo'lsa -> True
+    - Aks holda (1 minutdan ko'p offline bo'lsa) -> False
+    """
+    now_ts = time.time()
+    # 1. Yaqinda (60 soniya ichida) biror joyga xabar yuborgan bo'lsa
+    if now_ts - last_owner_activity_time < AUTO_REPLY_DELAY:
+        return True
+
+    # 2. Telegram statusini tekshirish
+    try:
+        me = await client.get_entity('me')
+        if hasattr(me, 'status') and me.status:
+            # Agar ayni paytda online bo'lsa
+            if isinstance(me.status, types.UserStatusOnline):
+                return True
+            # Agar offline bo'lsa, chiqib ketganiga 60 soniya bo'ldimi?
+            if isinstance(me.status, types.UserStatusOffline) and hasattr(me.status, 'was_online') and me.status.was_online:
+                now_utc = datetime.now(timezone.utc)
+                diff = (now_utc - me.status.was_online).total_seconds()
+                if diff < AUTO_REPLY_DELAY:
+                    return True
+    except Exception as e:
+        print(f"[STATUS CHECK WARN] {e}", flush=True)
+
+    return False
+
+async def send_ai_reply(chat_id: int, sender_id: int, sender_name: str, user_text: str, incoming_msg_id: int):
+    """
+    Talab:
+    - Online turganingizda ketmaydi.
+    - Chiqib ketganingizga 1 minutdan oshgandan keyin va siz javob bermagan bo'lsangiz ketadi.
+    - O'zingiz javob yozsangiz — bot bekor qilinadi.
+    """
+    try:
+        start_time = time.time()
+        max_wait_seconds = 1800  # Eng ko'pi 30 daqiqa kutish, keyin to'xtatish
+
+        print(f"[NAVATGA OLINDI] {sender_name}: '{user_text[:30]}...' — Online/Javob holati nazoratda...", flush=True)
+
+        while True:
+            await asyncio.sleep(10)  # Har 10 soniyada holatni tekshiramiz
+
+            # 1. Siz shu chatga o'zingiz javob yozdingizmi?
+            messages = await client.get_messages(chat_id, limit=10)
+            for msg in messages:
+                if msg.out and msg.id > incoming_msg_id:
+                    print(f"[BEKOR QILINDI] {sender_name}: Siz o'zingiz javob yozdingiz, bot to'xtatildi.", flush=True)
+                    return
+
+            elapsed = time.time() - start_time
+            if elapsed > max_wait_seconds:
+                print(f"[TIMEOUT] {sender_name}: 30 daqiqadan oshdi, vazifa bekor qilindi.", flush=True)
                 return
 
-        print(f"\n[XABAR KELDI] {sender_name}: {user_text}", flush=True)
+            # Kamida 60 soniya kutish shart
+            if elapsed < AUTO_REPLY_DELAY:
+                continue
 
-        # AI javob olish
+            # 2. Siz online turibsizmi yoki chiqib ketganingizga 1 minut to'lmadimi?
+            is_active = await is_owner_online_or_recently_active()
+            if is_active:
+                # Egasi hali online yoki chiqib ketganiga 1 minut bo'lmagan -> kutishda davom etamiz
+                continue
+
+            # 3. Agar 1 minutdan oshgan bo'lsa va siz offline bo'lsangiz (va javob yozmagan bo'lsangiz):
+            print(f"[CHIQIB KETILGAN: 1 MINUT O'TDI] {sender_name} uchun javob tayyorlanmoqda...", flush=True)
+            break
+
+        # AI dan javob olish
         ai_reply = await generate_ai_response(sender_id, user_text)
         print(f"[AI JAVOBI]: {ai_reply}", flush=True)
 
@@ -64,7 +131,7 @@ async def send_ai_reply(chat_id: int, sender_id: int, sender_name: str, user_tex
                         voice_note=True,
                         reply_to=incoming_msg_id
                     )
-                    print(f"[OVOZLI XABAR YUBORILDI] -> {sender_name}", flush=True)
+                    print(f"[OVOZLI XABAR YUBORILDI] -> {sender_name}\n", flush=True)
                     try:
                         os.remove(voice_file)
                     except Exception:
@@ -77,7 +144,7 @@ async def send_ai_reply(chat_id: int, sender_id: int, sender_name: str, user_tex
 
         # Qisqa bo'lsa yoki ovoz yaratilmasa — matn
         await client.send_message(chat_id, ai_reply, reply_to=incoming_msg_id)
-        print(f"[MATN YUBORILDI] -> {sender_name}: {ai_reply}", flush=True)
+        print(f"[MATN YUBORILDI] -> {sender_name}: {ai_reply}\n", flush=True)
 
     except Exception as e:
         print(f"[ERROR] send_ai_reply: {e}", flush=True)
@@ -99,7 +166,6 @@ async def handle_incoming(event):
 
         if event.voice or event.audio:
             print(f"[VOICE KELDI] {sender_name}", flush=True)
-            # Ovozli xabarga ham 1 daqiqa kutib javob ber
             asyncio.create_task(send_ai_reply(
                 event.chat_id, sender_id, sender_name,
                 "[Ovozli xabar yubordi]", event.id
@@ -118,9 +184,9 @@ async def handle_incoming(event):
         if not user_text.strip():
             return
 
-        print(f"[XABAR QABUL QILINDI] {sender_name}: {user_text} — 1 daqiqa kutilmoqda...", flush=True)
+        print(f"\n⚡ [YANGI XABAR] {sender_name}: {user_text}", flush=True)
 
-        # 1 daqiqa kutib, agar siz javob bermagan bo'lsangiz — bot yuboradi
+        # Monitoring va javob berish vazifasini ishga tushirish
         asyncio.create_task(send_ai_reply(
             event.chat_id, sender_id, sender_name,
             user_text, event.id
@@ -132,7 +198,7 @@ async def handle_incoming(event):
 
 async def main():
     print("==================================================", flush=True)
-    print("TELEGRAM USERBOT — 1 DAQIQA KUTIB JAVOB BERUVCHI", flush=True)
+    print("TELEGRAM USERBOT — FAQAT CHIQIB KETGANDA VA 1 MINUT O'TGANDA", flush=True)
     print("==================================================", flush=True)
 
     await client.connect()
@@ -143,7 +209,7 @@ async def main():
     me = await client.get_me()
     print(f"[OK] Ulandi: {me.first_name} (@{me.username or 'usernamesiz'})", flush=True)
     print(f"[OK] Ovoz chegarasi: {VOICE_THRESHOLD_CHARS} belgi", flush=True)
-    print(f"[OK] Kutish vaqti: {AUTO_REPLY_DELAY} soniya (1 daqiqa)", flush=True)
+    print(f"[OK] Chiqib ketishni kutish: {AUTO_REPLY_DELAY} soniya (1 daqiqa)", flush=True)
     print("==================================================", flush=True)
 
     app = web.Application()
