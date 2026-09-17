@@ -43,6 +43,9 @@ client = TelegramClient("my_userbot_session", API_ID, API_HASH, loop=loop)
 
 last_owner_activity = {}
 
+# Ovozli xabarga aylantirish chegarasi (75 ta belgi)
+VOICE_THRESHOLD_CHARS = 75
+
 @client.on(events.NewMessage(outgoing=True))
 async def handle_outgoing(event):
     """Siz o'zingiz yozsangiz, bot 3 daqiqa bu chatga aralashmaydi"""
@@ -96,14 +99,14 @@ async def handle_incoming(event):
         # AI dan javob olish
         ai_reply = await generate_ai_response(sender_id, user_text)
 
-        # 2. QOIDALAR BO'YICHA YUBORISH (Qisqa bo'lsa Matn, Uzun bo'lsa Ovozli xabar):
-        # 85 belgidan uzun bo'lsa ovozli xabar qilamiz
-        if len(ai_reply) > 85:
-            print(f"🎙️ [OVOZ YARATILMOQDA...] ({len(ai_reply)} ta belgi)")
+        # 2. QOIDALAR BO'YICHA YUBORISH:
+        # Agar javob 100 belgidan oshsa -> Ovozli xabar (Voice)
+        # Agar 100 belgidan kam bo'lsa -> Oddiy matn (Text)
+        if len(ai_reply) >= VOICE_THRESHOLD_CHARS:
+            print(f"🎙️ [OVOZ YARATILMOQDA...] ({len(ai_reply)} belgi, limit: {VOICE_THRESHOLD_CHARS})")
             async with client.action(event.chat_id, 'record-voice'):
                 voice_file = await text_to_voice_file(ai_reply, f"voice_{sender_id}.ogg")
                 if voice_file and os.path.exists(voice_file):
-                    # Telegram voice shaklida yuborish
                     await client.send_file(event.chat_id, voice_file, voice_note=True, reply_to=event.id)
                     print(f"🚀 [OVOZLI JAVOB YUBORILDI] -> {sender_name}\n")
                     try:
@@ -112,7 +115,7 @@ async def handle_incoming(event):
                         pass
                     return
 
-        # Qisqa bo'lsa oddiy matn sifatida yuborish
+        # Qisqa bo'lsa oddiy matn
         await event.reply(ai_reply)
         print(f"🚀 [MATNLI JAVOB YUBORILDI] -> {sender_name}: {ai_reply}\n")
 
@@ -122,13 +125,14 @@ async def handle_incoming(event):
 async def main():
     print("==================================================")
     print("🌐 24/7 BULUT SERVERIDA SMART AI BOT (MATN + OVOZ)...")
+    print(f"📏 Ovozli xabar chegarasi: {VOICE_THRESHOLD_CHARS} ta belgi")
     print("==================================================")
 
     threading.Thread(target=run_http_server, daemon=True).start()
 
     await client.connect()
     me = await client.get_me()
-    print(f"✅ BOT MATN VA OVOZLI REJIMDA ISHLAMOQDA!")
+    print(f"✅ BOT ISHLAMOQDA!")
     print(f"👤 Egasi: {me.first_name} (@{me.username or 'usernamesiz'})")
     print("==================================================")
 
