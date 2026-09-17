@@ -7,7 +7,7 @@ import time
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 from ai_service import generate_ai_response
-from voice_service import text_to_voice_file
+from voice_service import text_to_voice_bytes
 
 if sys.platform == "win32":
     try:
@@ -41,8 +41,6 @@ asyncio.set_event_loop(loop)
 client = TelegramClient("my_userbot_session", API_ID, API_HASH, loop=loop)
 
 last_owner_activity = {}
-
-# Chegara: 75 ta belgi
 VOICE_THRESHOLD_CHARS = 75
 
 @client.on(events.NewMessage(outgoing=True))
@@ -90,51 +88,44 @@ async def handle_incoming(event):
 
         print(f"⚡ [XABAR] {sender_name}: {user_text}")
 
-        # AI dan javob olish
+        # AI javobi
         ai_reply = await generate_ai_response(sender_id, user_text)
 
-        # 75 belgidan oshsa OVOZLI XABAR jo'natish
+        # 75 belgidan oshsa — Ultra-tezkor ovozli xabar
         if len(ai_reply) >= VOICE_THRESHOLD_CHARS:
-            print(f"🎙️ [OVOZ YARATILMOQDA...] ({len(ai_reply)} belgi >= {VOICE_THRESHOLD_CHARS})")
-            voice_path = f"voice_{int(time.time())}.ogg"
+            print(f"⚡🎙️ [TEZKOR OVOZ YARATILMOQDA...] ({len(ai_reply)} belgi)")
             try:
-                voice_file = await text_to_voice_file(ai_reply, voice_path)
-                if voice_file and os.path.exists(voice_file) and os.path.getsize(voice_file) > 0:
+                audio_buffer = await text_to_voice_bytes(ai_reply)
+                if audio_buffer:
                     await client.send_file(
                         event.chat_id,
-                        voice_file,
+                        audio_buffer,
                         voice_note=True,
                         reply_to=event.id
                     )
-                    print(f"🚀 [OVOZLI JAVOB YUBORILDI] -> {sender_name}\n")
-                    try:
-                        os.remove(voice_file)
-                    except Exception:
-                        pass
+                    print(f"🚀 [OVOZLI JAVOB DARHOL TUSHDI] -> {sender_name}\n")
                     return
-                else:
-                    print("⚠️ Ovoz fayli yaratilmadi, matn yuboriladi.")
             except Exception as ve:
-                print(f"❌ Ovoz yuborishda xato: {ve}")
+                print(f"❌ Ovoz xatosi: {ve}")
 
-        # Agar 75 belgidan kam bo'lsa yoki ovozda xato bo'lsa, matn yuboriladi
+        # Matnli xabar
         await event.reply(ai_reply)
-        print(f"🚀 [MATNLI JAVOB YUBORILDI] -> {sender_name}: {ai_reply}\n")
+        print(f"🚀 [MATNLI JAVOB] -> {sender_name}: {ai_reply}\n")
 
     except Exception as e:
         print(f"❌ Xatolik: {e}")
 
 async def main():
     print("==================================================")
-    print("🌐 24/7 BULUT SERVERIDA SMART AI BOT (MATN + OVOZ)...")
-    print(f"📏 Ovozli xabar chegarasi: {VOICE_THRESHOLD_CHARS} ta belgi")
+    print("⚡ 24/7 BULUT SERVERIDA ULTRA-TEZKOR OVOZLI BOT...")
+    print(f"📏 Ovoz chegarasi: {VOICE_THRESHOLD_CHARS} ta belgi")
     print("==================================================")
 
     threading.Thread(target=run_http_server, daemon=True).start()
 
     await client.connect()
     me = await client.get_me()
-    print(f"✅ BOT ISHLAMOQDA!")
+    print(f"✅ BOT ULTRA-TEZKOR REJIMDA ISHLAMOQDA!")
     print(f"👤 Egasi: {me.first_name} (@{me.username or 'usernamesiz'})")
     print("==================================================")
 
