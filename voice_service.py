@@ -5,51 +5,48 @@ import subprocess
 from gtts import gTTS
 
 def create_voice_sync(text: str, output_path: str) -> bool:
-    """Google TTS orqali audio yaratib, ffmpeg bilan haqiqiy Telegram OGG/Opus ovoziga aylantirish"""
-    temp_mp3 = output_path.replace(".ogg", ".mp3")
+    """Google TTS ovozini erkak kishi (o'g'il bola) tembriga o'girish va Telegram OGG Opus yaratish"""
+    raw_mp3 = output_path.replace(".ogg", "_raw.mp3")
     try:
         clean_text = re.sub(r'[^\w\s\.,!\?\'"\-—:;]+', '', text).strip()
         if not clean_text:
             clean_text = text
 
-        # Ruscha bo'lsa ru, o'zbekcha bo'lsa toza o'zbekcha / turkiy talaffuz
-        lang = "ru" if re.search(r'[а-яА-ЯёЁ]', clean_text) else "uz"
+        lang = "ru" if re.search(r'[а-яА-ЯёЁ]', clean_text) else "tr"
         
-        try:
-            tts = gTTS(text=clean_text, lang=lang, slow=False)
-            tts.save(temp_mp3)
-        except Exception:
-            # Agar 'uz' ba'zi hududda bo'lmasa, eng yaqin turkiy talaffuz
-            tts = gTTS(text=clean_text, lang="tr", slow=False)
-            tts.save(temp_mp3)
+        # 1. Boshlang'ich audio
+        tts = gTTS(text=clean_text, lang=lang, slow=False)
+        tts.save(raw_mp3)
 
-        # ffmpeg orqali Telegram Voice Note (OGG/Opus) formatiga o'girish (to'lqinli ovoz bo'lishi uchun)
-        if os.path.exists(temp_mp3):
-            cmd = f'ffmpeg -y -i "{temp_mp3}" -c:a libopus -b:a 32k -vbr on "{output_path}"'
+        if os.path.exists(raw_mp3):
+            # 2. ffmpeg orqali ovoz chastotasini erkak kishi tembriga pasaytirish (pitch shift):
+            # asetrate=24000*0.83 (ovozni erkakchasiga yo'g'onlashtiradi) va atempo=1.2 (tezlikni tabiiy qiladi)
+            # -c:a libopus (Telegram haqiqiy Voice Note standarti)
+            cmd = (
+                f'ffmpeg -y -i "{raw_mp3}" '
+                f'-af "asetrate=24000*0.84,atempo=1.19" '
+                f'-c:a libopus -b:a 32k -vbr on "{output_path}"'
+            )
             subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            
-            # Agar ogg muvaffaqiyatli chiqsa
+
+            # Tozalash
+            try:
+                os.remove(raw_mp3)
+            except Exception:
+                pass
+
             if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-                try:
-                    os.remove(temp_mp3)
-                except Exception:
-                    pass
                 return True
-            else:
-                # Agar ffmpeg bo'lmasa, to'g'ridan-to'g'ri mp3 ni qoldiramiz
-                if os.path.exists(temp_mp3):
-                    os.rename(temp_mp3, output_path)
-                    return True
         return False
     except Exception as e:
-        print(f"❌ Ovoz yaratish xatosi: {e}", flush=True)
+        print(f"❌ Ovoz xatosi: {e}", flush=True)
         return False
 
 async def text_to_voice_file(text: str, output_path: str = "voice.ogg") -> str:
     try:
         loop = asyncio.get_running_loop()
         ok = await loop.run_in_executor(None, create_voice_sync, text, output_path)
-        if ok and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+        if ok:
             return output_path
         return ""
     except Exception as e:
