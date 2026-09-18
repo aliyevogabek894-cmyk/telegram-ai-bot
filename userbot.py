@@ -25,7 +25,9 @@ API_HASH = os.getenv("TELEGRAM_API_HASH", "").strip()
 async def health_check(request):
     return web.Response(text="Bot 24/7 ishlamoqda!")
 
-client = TelegramClient("bot_cloud_session", API_ID, API_HASH)
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+client = TelegramClient("bot_cloud_session", API_ID, API_HASH, loop=loop)
 
 # 20 ta belgidan oshsa — OVOZLI XABAR
 VOICE_THRESHOLD_CHARS = 20
@@ -224,4 +226,4 @@ async def main():
     await client.run_until_disconnected()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    loop.run_until_complete(main())
