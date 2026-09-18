@@ -5,11 +5,11 @@ from aiohttp import web
 import time
 from datetime import datetime, timezone
 from dotenv import load_dotenv
-from telethon import TelegramClient, events
+from telethon import TelegramClient, events, connection
 from telethon.tl import types
 from telethon.tl.types import DocumentAttributeAudio
 from ai_service import generate_ai_response
-from voice_service import text_to_voice_file
+from voice_service import text_to_voice_file, get_voice_waveform_and_duration
 
 if hasattr(sys.stdout, 'reconfigure'):
     try:
@@ -27,7 +27,17 @@ async def health_check(request):
 
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
-client = TelegramClient("bot_cloud_session", API_ID, API_HASH, loop=loop)
+client = TelegramClient(
+    "bot_cloud_session",
+    API_ID,
+    API_HASH,
+    connection=connection.ConnectionTcpIntermediate,
+    timeout=30,
+    retry_delay=2,
+    connection_retries=10,
+    auto_reconnect=True,
+    loop=loop
+)
 
 # 20 ta belgidan oshsa — OVOZLI XABAR
 VOICE_THRESHOLD_CHARS = 20
@@ -125,22 +135,25 @@ async def send_ai_reply(chat_id: int, sender_id: int, sender_name: str, user_tex
             print(f"[OVOZ YARATILMOQDA] ({len(ai_reply)} belgi)...", flush=True)
             voice_filename = f"v_{sender_id}_{int(time.time())}.ogg"
             try:
-                voice_file = await text_to_voice_file(ai_reply, voice_filename)
-                if voice_file and os.path.exists(voice_file) and os.path.getsize(voice_file) > 0:
-                    await client.send_file(
-                        chat_id,
-                        voice_file,
-                        voice_note=True,
-                        reply_to=incoming_msg_id
-                    )
-                    print(f"[OVOZLI XABAR YUBORILDI] -> {sender_name}\n", flush=True)
-                    try:
-                        os.remove(voice_file)
-                    except Exception:
-                        pass
-                    return
-                else:
-                    print("[WARN] Ovoz fayli yaratilmadi, matn yuboriladi.", flush=True)
+                async with client.action(chat_id, 'record-audio'):
+                    voice_file = await text_to_voice_file(ai_reply, voice_filename)
+                    if voice_file and os.path.exists(voice_file) and os.path.getsize(voice_file) > 0:
+                        voice_attr = get_voice_waveform_and_duration(voice_file, ai_reply)
+                        await client.send_file(
+                            chat_id,
+                            voice_file,
+                            voice_note=True,
+                            attributes=[voice_attr],
+                            reply_to=incoming_msg_id
+                        )
+                        print(f"[OVOZLI XABAR YUBORILDI (WAVEFORM BILAN)] -> {sender_name}\n", flush=True)
+                        try:
+                            os.remove(voice_file)
+                        except Exception:
+                            pass
+                        return
+                    else:
+                        print("[WARN] Ovoz fayli yaratilmadi, matn yuboriladi.", flush=True)
             except Exception as ve:
                 print(f"[ERROR] send_file: {ve}", flush=True)
 

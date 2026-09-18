@@ -13,10 +13,14 @@ if hasattr(sys.stdout, 'reconfigure'):
     except Exception:
         pass
 
+import shutil
+
+HAS_FFMPEG = shutil.which("ffmpeg") is not None
+
 async def generate_edge_tts(text: str, voice: str, output_path: str) -> bool:
     """Edge-TTS orqali tabiiy o'g'il bola ovozini yaratish (uz-UZ-SardorNeural)"""
     try:
-        communicate = edge_tts.Communicate(text, voice)
+        communicate = edge_tts.Communicate(text, voice, rate="+12%")
         await communicate.save(output_path)
         return os.path.exists(output_path) and os.path.getsize(output_path) > 0
     except Exception as e:
@@ -25,6 +29,8 @@ async def generate_edge_tts(text: str, voice: str, output_path: str) -> bool:
 
 def convert_to_opus_sync(input_mp3: str, output_ogg: str) -> bool:
     """ffmpeg orqali Telegram Voice Note (.ogg Opus) formatiga o'tkazish"""
+    if not HAS_FFMPEG:
+        return False
     try:
         cmd = f'ffmpeg -y -i "{input_mp3}" -c:a libopus -b:a 32k -vbr on "{output_ogg}"'
         res = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -120,3 +126,37 @@ async def text_to_voice_file(text: str, output_path: str = "voice.ogg") -> str:
     except Exception as e:
         print(f"[VOICE ERROR] Umumiy xato: {e}", flush=True)
         return ""
+
+def get_voice_waveform_and_duration(filepath: str, text: str = ""):
+    """Telegram uchun tabiiy to'lqinli chiziqlar (waveform) va davomiylikni yaratish"""
+    import numpy as np
+    from telethon import utils, types
+
+    duration = 5
+    if os.path.exists(filepath):
+        size = os.path.getsize(filepath)
+        est = int(size / 6000)
+        if est > 0:
+            duration = est
+        else:
+            duration = max(1, int(len(text) / 14))
+    else:
+        duration = max(1, int(len(text) / 14))
+
+    num_samples = 100
+    t = np.linspace(0, duration, num_samples)
+    words = np.abs(np.sin(2 * np.pi * 0.8 * t))
+    syllables = np.abs(np.sin(2 * np.pi * 3.5 * t))
+    noise = np.random.uniform(0.6, 1.0, num_samples)
+    envelope = words * syllables * noise
+    waveform = np.clip(envelope * 28 + 3, 2, 31).astype(int)
+    waveform[:3] = np.minimum(waveform[:3], [4, 10, 18])
+    waveform[-3:] = np.minimum(waveform[-3:], [16, 8, 3])
+    raw_bytes = bytes(int(x) for x in waveform)
+    waveform_bytes = utils.encode_waveform(raw_bytes)
+
+    return types.DocumentAttributeAudio(
+        duration=duration,
+        voice=True,
+        waveform=waveform_bytes
+    )

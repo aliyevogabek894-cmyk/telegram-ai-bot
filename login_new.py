@@ -11,7 +11,7 @@ if hasattr(sys.stdout, 'reconfigure'):
         pass
 
 from dotenv import load_dotenv
-from telethon import TelegramClient
+from telethon import TelegramClient, connection
 from telethon.errors import SessionPasswordNeededError
 
 load_dotenv()
@@ -23,23 +23,33 @@ DEFAULT_PHONE = "+998950892225"
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
 
-client = TelegramClient("bot_cloud_session", API_ID, API_HASH, loop=loop)
+def get_client():
+    c = TelegramClient(
+        "bot_cloud_session",
+        API_ID,
+        API_HASH,
+        timeout=20,
+        retry_delay=1,
+        auto_reconnect=True,
+        loop=loop
+    )
+    c.session.set_dc(2, "149.154.167.51", 80)
+    return c
 
 async def login():
+    client = get_client()
     await client.connect()
     
     if not await client.is_user_authorized():
         print("==================================================")
         print("📲 TELEGRAM AKKAUNTGA ULASH (LOGIN)")
         print("==================================================")
-        user_phone = input(f"Telefon raqamingiz (Enter bosing: {DEFAULT_PHONE}): ").strip()
-        phone = user_phone if user_phone else DEFAULT_PHONE
-        
-        print(f"\n📲 {phone} raqamiga Telegram orqali tasdiqlash kodi yuborilmoqda...")
+        phone = DEFAULT_PHONE
+        print(f"\n📲 {phone} raqamingizga Telegram orqali tasdiqlash kodi yuborilmoqda...")
         sent_code = await client.send_code_request(phone)
-        print("✅ Tasdiqlash kodi Telegram ilovangizga (yoki SMS orqali) yuborildi!")
+        print("✅ Tasdiqlash kodi Telegram ilovangizga (yoki SMS) yuborildi!")
         
-        code = input("\n👉 Telegramga kelgan 5 xonali kodni kiriting: ").strip().replace(" ", "").replace("-", "")
+        code = input("\n👉 Telegram ilovangizga kelgan 5 xonali KODNI kiriting: ").strip().replace(" ", "").replace("-", "")
         
         try:
             await client.sign_in(phone=phone, code=code, phone_code_hash=sent_code.phone_code_hash)
