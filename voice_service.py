@@ -104,15 +104,22 @@ async def text_to_voice_file(text: str, output_path: str = "voice.ogg") -> str:
                     os.remove(temp_mp3)
                 except Exception:
                     pass
+                print(f"[VOICE] OGG Opus tayyor (ffmpeg bilan)", flush=True)
                 return output_path
             else:
-                # Agar ffmpeg bo'lmasa, mp3 faylni output_path ga o'tkazib yuboramiz
+                # ffmpeg yo'q — mp3 faylni bevosita output_path ga ko'chiramiz
+                # Telegram mp3 formatdagi voice_note=True faylni ham qabul qiladi
                 if os.path.exists(output_path):
                     try:
                         os.remove(output_path)
                     except Exception:
                         pass
-                os.rename(temp_mp3, output_path)
+                shutil.copy2(temp_mp3, output_path)
+                try:
+                    os.remove(temp_mp3)
+                except Exception:
+                    pass
+                print(f"[VOICE] MP3 format tayyor (ffmpeg yo'q, lekin ishlaydi)", flush=True)
                 return output_path
 
         # 4. Zaxira: Agar Edge-TTS vaqtinchalik ishlamay qolsa
