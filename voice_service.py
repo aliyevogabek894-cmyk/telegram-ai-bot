@@ -135,8 +135,9 @@ async def text_to_voice_file(text: str, output_path: str = "voice.ogg") -> str:
         return ""
 
 def get_voice_waveform_and_duration(filepath: str, text: str = ""):
-    """Telegram uchun tabiiy to'lqinli chiziqlar (waveform) va davomiylikni yaratish"""
-    import numpy as np
+    """Telegram uchun tabiiy to'lqinli chiziqlar (waveform) va davomiylikni yaratish (100% pure Python)"""
+    import math
+    import random
     from telethon import utils, types
 
     duration = 5
@@ -151,16 +152,25 @@ def get_voice_waveform_and_duration(filepath: str, text: str = ""):
         duration = max(1, int(len(text) / 14))
 
     num_samples = 100
-    t = np.linspace(0, duration, num_samples)
-    words = np.abs(np.sin(2 * np.pi * 0.8 * t))
-    syllables = np.abs(np.sin(2 * np.pi * 3.5 * t))
-    noise = np.random.uniform(0.6, 1.0, num_samples)
-    envelope = words * syllables * noise
-    waveform = np.clip(envelope * 28 + 3, 2, 31).astype(int)
-    waveform[:3] = np.minimum(waveform[:3], [4, 10, 18])
-    waveform[-3:] = np.minimum(waveform[-3:], [16, 8, 3])
-    raw_bytes = bytes(int(x) for x in waveform)
-    waveform_bytes = utils.encode_waveform(raw_bytes)
+    raw_samples = []
+    for i in range(num_samples):
+        t = (i / num_samples) * duration
+        w = abs(math.sin(2 * math.pi * 0.8 * t))
+        s = abs(math.sin(2 * math.pi * 3.5 * t))
+        r = random.uniform(0.6, 1.0)
+        val = int(w * s * r * 28 + 3)
+        val = max(2, min(31, val))
+        raw_samples.append(val)
+
+    # Boshlanishi va tugashini tabiiy sekinlashtirish (fading)
+    raw_samples[0] = min(raw_samples[0], 4)
+    raw_samples[1] = min(raw_samples[1], 10)
+    raw_samples[2] = min(raw_samples[2], 18)
+    raw_samples[-1] = min(raw_samples[-1], 3)
+    raw_samples[-2] = min(raw_samples[-2], 8)
+    raw_samples[-3] = min(raw_samples[-3], 16)
+
+    waveform_bytes = utils.encode_waveform(bytes(raw_samples))
 
     return types.DocumentAttributeAudio(
         duration=duration,

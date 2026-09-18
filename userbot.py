@@ -138,24 +138,26 @@ async def send_ai_reply(chat_id: int, sender_id: int, sender_name: str, user_tex
                 async with client.action(chat_id, 'record-audio'):
                     voice_file = await text_to_voice_file(ai_reply, voice_filename)
                     if voice_file and os.path.exists(voice_file) and os.path.getsize(voice_file) > 0:
-                        voice_attr = get_voice_waveform_and_duration(voice_file, ai_reply)
-                        # Faylni bytes sifatida o'qib, mime_type aniq ko'rsatamiz
-                        import io
-                        with open(voice_file, 'rb') as f:
-                            voice_bytes = io.BytesIO(f.read())
-                        # MP3 yoki OGG formatini aniqlash
-                        ext = voice_file.rsplit('.', 1)[-1].lower() if '.' in voice_file else 'ogg'
-                        mime = 'audio/mpeg' if ext == 'mp3' else 'audio/ogg'
-                        voice_bytes.name = f"voice.{ext}"
-                        await client.send_file(
-                            chat_id,
-                            voice_bytes,
-                            voice_note=True,
-                            attributes=[voice_attr],
-                            mime_type=mime,
-                            reply_to=incoming_msg_id
-                        )
-                        print(f"[OVOZLI XABAR YUBORILDI (WAVEFORM BILAN)] -> {sender_name}\n", flush=True)
+                        try:
+                            voice_attr = get_voice_waveform_and_duration(voice_file, ai_reply)
+                            await client.send_file(
+                                chat_id,
+                                voice_file,
+                                voice_note=True,
+                                attributes=[voice_attr],
+                                reply_to=incoming_msg_id
+                            )
+                            print(f"[OVOZLI XABAR YUBORILDI (WAVEFORM BILAN)] -> {sender_name}\n", flush=True)
+                        except Exception as e_wave:
+                            print(f"[WARN] Waveform bilan ketmadi ({e_wave}), oddiy ovozli yuborilmoqda...", flush=True)
+                            await client.send_file(
+                                chat_id,
+                                voice_file,
+                                voice_note=True,
+                                reply_to=incoming_msg_id
+                            )
+                            print(f"[OVOZLI XABAR YUBORILDI] -> {sender_name}\n", flush=True)
+
                         try:
                             os.remove(voice_file)
                         except Exception:

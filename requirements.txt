@@ -4,3 +4,4 @@ python-dotenv==1.0.1
 aiohttp==3.11.11
 edge-tts>=7.2.8
 gTTS==2.5.4
+numpy>=1.26.0
