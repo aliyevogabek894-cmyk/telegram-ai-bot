@@ -39,11 +39,11 @@ client = TelegramClient(
     loop=loop
 )
 
-# 20 ta belgidan oshsa — OVOZLI XABAR
-VOICE_THRESHOLD_CHARS = 20
+# Har qanday javob — OVOZLI XABAR bo'lib ketsin
+VOICE_THRESHOLD_CHARS = 1
 
-# Chiqib ketganingizdan keyin yoki javob bermasangiz kutish vaqti (60 soniya = 1 daqiqa)
-AUTO_REPLY_DELAY = 60
+# Javob bermasangiz kutish vaqti (25 soniya)
+AUTO_REPLY_DELAY = 25
 
 # Egasi (Og'abek) oxirgi marta qachon xabar yozgan vaqti
 last_owner_activity_time = 0.0
@@ -98,10 +98,10 @@ async def send_ai_reply(chat_id: int, sender_id: int, sender_name: str, user_tex
         print(f"[NAVATGA OLINDI] {sender_name}: '{user_text[:30]}...' — Online/Javob holati nazoratda...", flush=True)
 
         while True:
-            await asyncio.sleep(10)  # Har 10 soniyada holatni tekshiramiz
+            await asyncio.sleep(3)  # Har 3 soniyada tekshirib turamiz
 
             # 1. Siz shu chatga o'zingiz javob yozdingizmi?
-            messages = await client.get_messages(chat_id, limit=10)
+            messages = await client.get_messages(chat_id, limit=5)
             for msg in messages:
                 if msg.out and msg.id > incoming_msg_id:
                     print(f"[BEKOR QILINDI] {sender_name}: Siz o'zingiz javob yozdingiz, bot to'xtatildi.", flush=True)
@@ -112,19 +112,10 @@ async def send_ai_reply(chat_id: int, sender_id: int, sender_name: str, user_tex
                 print(f"[TIMEOUT] {sender_name}: 30 daqiqadan oshdi, vazifa bekor qilindi.", flush=True)
                 return
 
-            # Kamida 60 soniya kutish shart
-            if elapsed < AUTO_REPLY_DELAY:
-                continue
-
-            # 2. Siz online turibsizmi yoki chiqib ketganingizga 1 minut to'lmadimi?
-            is_active = await is_owner_online_or_recently_active()
-            if is_active:
-                # Egasi hali online yoki chiqib ketganiga 1 minut bo'lmagan -> kutishda davom etamiz
-                continue
-
-            # 3. Agar 1 minutdan oshgan bo'lsa va siz offline bo'lsangiz (va javob yozmagan bo'lsangiz):
-            print(f"[CHIQIB KETILGAN: 1 MINUT O'TDI] {sender_name} uchun javob tayyorlanmoqda...", flush=True)
-            break
+            # 2. 25 soniya o'tsa va siz javob bermagan bo'lsangiz:
+            if elapsed >= AUTO_REPLY_DELAY:
+                print(f"[25 SONIYA O'TDI] {sender_name} uchun ovozli xabar tayyorlanmoqda...", flush=True)
+                break
 
         # AI dan javob olish
         ai_reply = await generate_ai_response(sender_id, user_text)
@@ -224,7 +215,7 @@ async def handle_incoming(event):
 
 async def main():
     print("==================================================", flush=True)
-    print("TELEGRAM USERBOT — FAQAT CHIQIB KETGANDA VA 1 MINUT O'TGANDA", flush=True)
+    print("TELEGRAM USERBOT — JAVOB YOZILMASA 25 SONIYADA OVOZLI JAVOB", flush=True)
     print("==================================================", flush=True)
 
     await client.connect()
@@ -234,8 +225,8 @@ async def main():
 
     me = await client.get_me()
     print(f"[OK] Ulandi: {me.first_name} (@{me.username or 'usernamesiz'})", flush=True)
-    print(f"[OK] Ovoz chegarasi: {VOICE_THRESHOLD_CHARS} belgi", flush=True)
-    print(f"[OK] Chiqib ketishni kutish: {AUTO_REPLY_DELAY} soniya (1 daqiqa)", flush=True)
+    print(f"[OK] Ovoz chegarasi: {VOICE_THRESHOLD_CHARS} belgi (doimiy ovoz)", flush=True)
+    print(f"[OK] Kutish vaqti: {AUTO_REPLY_DELAY} soniya", flush=True)
     print("==================================================", flush=True)
 
     app = web.Application()
