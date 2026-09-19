@@ -268,10 +268,24 @@ async def run_bot():
         print("[QAYTA ULANISH] Yangi ulanish boshlanmoqda...", flush=True)
 
 
+async def keep_alive():
+    """Har 10 daqiqada Telegramga ping yuborib, bot uxlamasligini ta'minlaydi"""
+    await asyncio.sleep(60)  # Boshlanganda 1 daqiqa kutamiz
+    while True:
+        try:
+            if client.is_connected():
+                await client.get_me()
+                print("[PING] Bot tirik, uxlamayapti ✓", flush=True)
+        except Exception as e:
+            print(f"[PING WARN] {e}", flush=True)
+        await asyncio.sleep(600)  # Har 10 daqiqada
+
+
 async def main():
     await asyncio.gather(
         start_http_server(),
-        run_bot()
+        run_bot(),
+        keep_alive()
     )
 
 if __name__ == "__main__":
