@@ -39,7 +39,7 @@ loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
 
 client = TelegramClient(
-    "local_session",
+    "bot_cloud_session",
     API_ID,
     API_HASH,
     connection=connection.ConnectionTcpIntermediate,
