@@ -112,7 +112,7 @@ async def send_ai_reply(chat_id: int, sender_id: int, sender_name: str, user_tex
                 print(f"[TIMEOUT] {sender_name}: 30 daqiqadan oshdi, vazifa bekor qilindi.", flush=True)
                 return
 
-            # 2. 25 soniya o'tsa va siz javob bermagan bo'lsangiz:
+            # 2. 25 soniya o'tsa — online/offline farq qilmay AI yuboradi
             if elapsed >= AUTO_REPLY_DELAY:
                 print(f"[25 SONIYA O'TDI] {sender_name} uchun ovozli xabar tayyorlanmoqda...", flush=True)
                 break

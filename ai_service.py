@@ -19,11 +19,11 @@ OWNER_NAME = "Og'abek"
 
 # Limitga tushsa keyingi modelga o'tuvchi zanjir
 AI_MODELS = [
-    "gemini-flash-lite-latest",   # 1-chi: eng ko'p limit
-    "gemini-3.5-flash-lite",      # 2-chi: zaxira lite
-    "gemini-3.1-flash-lite",      # 3-chi: yana lite
-    "gemini-3.5-flash",           # 4-chi: to'liq flash
-    "gemini-3.8-flash",           # 5-chi: so'nggi avlod
+    "gemini-2.0-flash-lite",        # 1-chi: eng tez va arzon
+    "gemini-2.0-flash",             # 2-chi: tez flash
+    "gemini-2.5-flash-lite-preview-06-17",  # 3-chi: yangi lite
+    "gemini-2.5-flash",             # 4-chi: kuchli flash
+    "gemini-1.5-flash",             # 5-chi: zaxira (eski avlod)
 ]
 
 user_conversations: Dict[int, Dict] = {}
